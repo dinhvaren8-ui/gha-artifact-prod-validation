@@ -1,0 +1,47 @@
+name: Untrusted Artifact Upload
+
+# This workflow stands in for an untrusted contribution. It runs with a read-only
+# token and uploads two artifacts: one with an adversarial name, one benign decoy.
+# It never executes anything it downloads.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build a payload whose archive-relative path is scripts/trusted-build.sh
+        run: |
+          mkdir -p stage/scripts
+          echo "ATTACKER-OVERWRITTEN-THIS" > stage/scripts/trusted-build.sh
+          echo "DECOY-CONTENT" > decoy.txt
+          find stage -type f -print
+
+      - name: Upload artifact whose name is '..'
+        id: adversarial
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '..'
+          path: stage
+
+      - name: Upload a benign second artifact
+        id: decoy
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: 'decoy'
+          path: decoy.txt
+
+      - name: Report upload outcomes
+        if: always()
+        run: |
+          echo "UP_ADVERSARIAL_OUTCOME=${{ steps.adversarial.outcome }}"
+          echo "UP_DECOY_OUTCOME=${{ steps.decoy.outcome }}"
+          echo "UP_RUN_ID=${{ github.run_id }}"
