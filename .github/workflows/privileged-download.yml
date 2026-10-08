@@ -12,7 +12,7 @@ name: Privileged Artifact Download
 
 on:
   workflow_run:
-    workflows: ["Untrusted Artifact Upload"]
+    workflows: ["Untrusted Artifact Upload", "Name Boundary Sweep"]
     types: [completed]
 
 permissions:
