@@ -1,0 +1,53 @@
+name: Privileged Artifact Download
+
+# The privileged half of the documented two-workflow pattern: it runs in the base
+# repository context and downloads artifacts produced by the untrusted run.
+#
+# The download deliberately omits `name`, `pattern` and `merge-multiple`, which is
+# the only input combination that reaches the per-artifact path join, and it
+# relies on the source run holding more than one artifact.
+#
+# Everything happens inside a scratch directory in the job workspace. The
+# pre-existing marker is a synthetic file that is never executed.
+
+on:
+  workflow_run:
+    workflows: ["Untrusted Artifact Upload"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lay down a destination directory and a pre-existing marker in its parent
+        run: |
+          mkdir -p ws/dest
+          mkdir -p ws/scripts
+          echo "TRUSTED-ORIGINAL-CONTENT" > ws/scripts/trusted-build.sh
+          echo "PARENT_SCRIPT_BEFORE=$(cat ws/scripts/trusted-build.sh)"
+
+      - name: Download every artifact of the source run
+        id: down
+        continue-on-error: true
+        uses: actions/download-artifact@v5
+        with:
+          path: ws/dest
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Inspect the filesystem without executing anything
+        if: always()
+        run: |
+          echo "DL_OUTCOME=${{ steps.down.outcome }}"
+          echo "SRC_RUN_ID=${{ github.event.workflow_run.id }}"
+          echo "--- files under ws ---"
+          find ws -type f -print | sort
+          echo "--- marker after ---"
+          echo "PARENT_SCRIPT_AFTER=$(cat ws/scripts/trusted-build.sh 2>/dev/null || echo MISSING)"
+          echo "ESCAPED_FILE_PRESENT=$(test -f ws/scripts/trusted-build.sh && echo PRESENT || echo ABSENT)"
+          echo "FILE_INSIDE_DEST=$(find ws/dest -type f -print | wc -l)"
