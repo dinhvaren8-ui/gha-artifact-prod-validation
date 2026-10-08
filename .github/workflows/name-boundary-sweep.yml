@@ -1,0 +1,125 @@
+name: Name Boundary Sweep
+
+# Determines which artifact-name strings the GitHub artifact service accepts.
+# The bundled client validator only rejects " : < > | * ? CR LF \ / â€” every
+# candidate below survives it, so a rejection observed here is a service-side
+# rejection.
+#
+# Two benign artifacts are uploaded as well, so that the source run holds more
+# than one artifact and the privileged download half actually reaches the
+# per-artifact path join. Every upload step is continue-on-error.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepare a small payload
+        run: |
+          echo "SWEEP-PAYLOAD" > payload.txt
+
+      - name: "boundary: dot"
+        id: n01
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '.'
+          path: payload.txt
+      - name: "boundary: triple dot"
+        id: n02
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '...'
+          path: payload.txt
+      - name: "boundary: dotdot trailing space"
+        id: n03
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '.. '
+          path: payload.txt
+      - name: "boundary: dotdot leading space"
+        id: n04
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: ' ..'
+          path: payload.txt
+      - name: "boundary: dotdot then x"
+        id: n05
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '..x'
+          path: payload.txt
+      - name: "boundary: percent-encoded dotdot"
+        id: n06
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '%2e%2e'
+          path: payload.txt
+      - name: "boundary: percent-encoded slash"
+        id: n07
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '..%2f'
+          path: payload.txt
+      - name: "boundary: fullwidth dotdot"
+        id: n08
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: 'ï¼Žï¼Ž'
+          path: payload.txt
+      - name: "boundary: four dots"
+        id: n09
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: '....'
+          path: payload.txt
+      - name: "boundary: forward slash (client-side control)"
+        id: n10
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: 'a/b'
+          path: payload.txt
+      - name: "benign: alpha"
+        id: b01
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: 'sweep-alpha'
+          path: payload.txt
+      - name: "benign: beta"
+        id: b02
+        continue-on-error: true
+        uses: actions/upload-artifact@v5
+        with:
+          name: 'sweep-beta'
+          path: payload.txt
+
+      - name: Report boundary outcomes
+        if: always()
+        run: |
+          echo "SWEEP_dot=${{ steps.n01.outcome }}"
+          echo "SWEEP_tripledot=${{ steps.n02.outcome }}"
+          echo "SWEEP_trailspace=${{ steps.n03.outcome }}"
+          echo "SWEEP_leadspace=${{ steps.n04.outcome }}"
+          echo "SWEEP_dotdotx=${{ steps.n05.outcome }}"
+          echo "SWEEP_percent=${{ steps.n06.outcome }}"
+          echo "SWEEP_pctslash=${{ steps.n07.outcome }}"
+          echo "SWEEP_fullwidth=${{ steps.n08.outcome }}"
+          echo "SWEEP_fourdots=${{ steps.n09.outcome }}"
+          echo "SWEEP_slash=${{ steps.n10.outcome }}"
+          echo "SWEEP_alpha=${{ steps.b01.outcome }}"
+          echo "SWEEP_beta=${{ steps.b02.outcome }}"
